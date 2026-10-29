@@ -27,7 +27,6 @@
       if (!url) {
         img.hidden = true;
         img.removeAttribute('src');
-        status.textContent = 'Вставьте ссылку на картинку';
         return;
       }
       img.src = url;
@@ -39,7 +38,6 @@
 
     img.addEventListener('error', () => {
       img.hidden = true;
-      status.classList.add('error');
       status.textContent = 'Ошибка';
     });
 
