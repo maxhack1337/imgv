@@ -1,51 +1,422 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Просмотр картинки</title>
-</head>
-<body>
-  <main>
-    <h1>Просмотр картинки</h1>
-    <form id="form">
-      <input id="src" type="text" placeholder="Вставьте ссылку на картинку" autocomplete="off">
-      <button type="submit">Показать</button>
-    </form>
-    <div class="frame">
-      <img style="max-width: 400px" id="img" alt="" hidden>
-    </div>
-  </main>
-
-  <script>
-    const input = document.getElementById('src');
-    const img = document.getElementById('img');
-    const status = document.getElementById('status');
-
-    function show() {
-      const url = input.value.trim();
-      if (!url) {
-        img.hidden = true;
-        img.removeAttribute('src');
-        return;
-      }
-      img.src = url;
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Сканер</title>
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --fg: #1b1f24;
+      --muted: #6a737d;
+      --line: #d5dae0;
+      --accent: #2f6fde;
+      --error: #c2362b;
+      --surface: #ffffff;
     }
 
-    img.addEventListener('load', () => {
-      img.hidden = false;
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15181c;
+        --fg: #e6e9ed;
+        --muted: #8b949e;
+        --line: #30363d;
+        --accent: #5b93f0;
+        --error: #f0706a;
+        --surface: #1d2126;
+        color-scheme: dark;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+
+    main {
+      max-width: 560px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      border: 0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #fff;
+      background: var(--accent);
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: default;
+    }
+
+    button:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    #scanBtn {
+      width: 100%;
+      font-size: 17px;
+      padding: 16px;
+    }
+
+    .status {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+      min-height: 1.5em;
+    }
+
+    .status.error {
+      color: var(--error);
+    }
+
+    .result {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .result .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+    }
+
+    .result pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      max-height: 40vh;
+      overflow: auto;
+    }
+
+    .result .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .result .row button {
+      padding: 8px 14px;
+      font-size: 14px;
+    }
+
+    details {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    details form {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    details input {
+      flex: 1 1 220px;
+      min-width: 0;
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--fg);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    details button {
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+
+    /* Полноэкранный просмотр */
+    .viewer {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .viewer img {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      object-fit: contain;
+      display: block;
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .viewer .bar {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      padding: 12px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      background: linear-gradient(transparent, rgba(0, 0, 0, .85));
+    }
+
+    .viewer .bar button {
+      flex: 1;
+    }
+
+    .viewer .ghost {
+      background: rgba(255, 255, 255, .14);
+    }
+
+    .viewer .msg {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: calc(84px + env(safe-area-inset-bottom));
+      text-align: center;
+      color: #fff;
+      font-size: 14px;
+      text-shadow: 0 1px 3px #000;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>Сканер</h1>
+    <p class="hint">Отсканируйте код камерой или выберите фото из галереи.</p>
+
+    <button id="scanBtn" type="button">Сканировать</button>
+    <p id="status" class="status"></p>
+
+    <div id="result" class="result" hidden>
+      <span class="label">Значение кода</span>
+      <pre id="value"></pre>
+      <div class="row">
+        <button id="copyBtn" type="button">Скопировать</button>
+        <button id="openImgBtn" type="button" hidden>Показать изображение</button>
+      </div>
+    </div>
+
+    <details>
+      <summary>Проверить просмотр вручную</summary>
+      <form id="manualForm">
+        <input id="manualSrc" type="text" placeholder="Ссылка, data URL или base64" autocomplete="off">
+        <button type="submit">Открыть</button>
+      </form>
+    </details>
+  </main>
+
+  <div id="viewer" class="viewer" hidden>
+    <img id="viewerImg" alt="Изображение из сканера">
+    <p id="viewerMsg" class="msg"></p>
+    <div class="bar">
+      <button id="closeBtn" class="ghost" type="button">Закрыть</button>
+      <button id="downloadBtn" type="button">Скачать</button>
+    </div>
+  </div>
+
+  <script>
+    const WebApp = window.WebApp;
+    const $ = (id) => document.getElementById(id);
+
+    const scanBtn = $('scanBtn'), statusEl = $('status');
+    const resultEl = $('result'), valueEl = $('value');
+    const openImgBtn = $('openImgBtn');
+    const viewer = $('viewer'), viewerImg = $('viewerImg'), viewerMsg = $('viewerMsg');
+    const downloadBtn = $('downloadBtn');
+
+    let currentImage = null;
+
+    try { WebApp && WebApp.ready && WebApp.ready(); } catch (e) { }
+
+    function setStatus(text, isError) {
+      statusEl.textContent = text || '';
+      statusEl.classList.toggle('error', !!isError);
+    }
+
+    function toImage(raw) {
+      if (!raw || typeof raw !== 'string') return null;
+      const s = raw.trim();
+      if (/^(https?:|blob:)/i.test(s)) {
+        const ext = (s.split('?')[0].match(/\.(png|jpe?g|webp|gif)$/i) || [])[1];
+        return { src: s, mime: ext ? 'image/' + ext.toLowerCase().replace('jpg', 'jpeg') : 'image/jpeg' };
+      }
+      const m = s.match(/^data:([^;,]+)[;,]/i);
+      if (m) return { src: s, mime: m[1] };
+      const b64 = s.replace(/\s+/g, '');
+      let mime = 'image/jpeg';
+      if (b64.startsWith('iVBOR')) mime = 'image/png';
+      else if (b64.startsWith('UklGR')) mime = 'image/webp';
+      else if (b64.startsWith('R0lGOD')) mime = 'image/gif';
+      return { src: 'data:' + mime + ';base64,' + b64, mime };
+    }
+
+    function openViewer(img) {
+      currentImage = img;
+      viewerMsg.textContent = '';
+      viewerImg.src = img.src;
+      viewer.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeViewer() {
+      viewer.hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    viewerImg.addEventListener('error', () => {
+      viewerMsg.textContent = 'Не удалось показать изображение.';
     });
 
-    img.addEventListener('error', () => {
-      img.hidden = true;
-      status.textContent = 'Ошибка';
+    scanBtn.addEventListener('click', async () => {
+      if (!WebApp || typeof WebApp.openCodeReader !== 'function') {
+        setStatus('Сканер доступен только внутри MAX.', true);
+        return;
+      }
+      scanBtn.disabled = true;
+      setStatus('Открываю сканер…');
+      try {
+        const res = await WebApp.openCodeReader(true);
+        setStatus('');
+        console.log('openCodeReader:', res);
+
+        const value = res && res.value != null ? String(res.value) : '';
+        valueEl.textContent = value || '(пусто)';
+        resultEl.hidden = false;
+
+        const img = toImage(res && res.normalizedImage);
+        openImgBtn.hidden = !img;
+        if (img) {
+          openImgBtn.onclick = () => openViewer(img);
+          openViewer(img);
+        }
+      } catch (err) {
+        const code = err && err.error && err.error.code;
+        setStatus(code ? 'Сканирование не удалось: ' + code : 'Сканирование отменено.', !!code);
+      } finally {
+        scanBtn.disabled = false;
+      }
     });
 
-    document.getElementById('form').addEventListener('submit', (e) => {
+    $('copyBtn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(valueEl.textContent);
+        setStatus('Скопировано.');
+      } catch (e) {
+        const r = document.createRange();
+        r.selectNodeContents(valueEl);
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        setStatus('Текст выделен, скопируйте его вручную.');
+      }
+    });
+
+    function fileName(mime) {
+      const ext = (mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      const d = new Date(), p = (n) => String(n).padStart(2, '0');
+      return `scan-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.${ext}`;
+    }
+
+    async function toFile(img, name) {
+      const blob = await (await fetch(img.src)).blob();
+      return new File([blob], name, { type: blob.type || img.mime });
+    }
+
+    downloadBtn.addEventListener('click', async () => {
+      if (!currentImage) return;
+      const name = fileName(currentImage.mime);
+      downloadBtn.disabled = true;
+      viewerMsg.textContent = '';
+
+      try {
+        if (WebApp && typeof WebApp.downloadFile === 'function') {
+          try {
+            const { status } = await WebApp.downloadFile(currentImage.src, name);
+            viewerMsg.textContent = status === 'cancelled' ? 'Скачивание отменено.' : 'Файл скачивается…';
+            return;
+          } catch (e) {
+            console.warn('downloadFile:', e);
+            if (/^https:/i.test(currentImage.src)) {
+              const code = e && e.error && e.error.code;
+              viewerMsg.textContent = 'Не удалось скачать' + (code ? ': ' + code : '.');
+              return;
+            }
+          }
+        }
+
+        try {
+          const file = await toFile(currentImage, name);
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] });
+            return;
+          }
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+          console.warn('share:', e);
+        }
+
+        const a = document.createElement('a');
+        a.href = currentImage.src;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } finally {
+        downloadBtn.disabled = false;
+      }
+    });
+
+    $('closeBtn').addEventListener('click', closeViewer);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !viewer.hidden) closeViewer(); });
+
+    try {
+      if (WebApp && WebApp.BackButton) {
+        WebApp.BackButton.onClick(() => { if (!viewer.hidden) closeViewer(); });
+        new MutationObserver(() => {
+          viewer.hidden ? WebApp.BackButton.hide() : WebApp.BackButton.show();
+        }).observe(viewer, { attributes: true, attributeFilter: ['hidden'] });
+      }
+    } catch (e) { }
+
+    $('manualForm').addEventListener('submit', (e) => {
       e.preventDefault();
-      show();
+      const img = toImage($('manualSrc').value);
+      if (img) openViewer(img);
     });
-    input.addEventListener('input', show);
   </script>
 </body>
+
 </html>
