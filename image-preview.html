@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Просмотр картинки</title>
+</head>
+<body>
+  <main>
+    <h1>Просмотр картинки</h1>
+    <form id="form">
+      <input id="src" type="text" placeholder="Вставьте ссылку на картинку" autocomplete="off">
+      <button type="submit">Показать</button>
+    </form>
+    <div class="frame">
+      <img style="max-width: 400px" id="img" alt="" hidden>
+    </div>
+  </main>
+
+  <script>
+    const input = document.getElementById('src');
+    const img = document.getElementById('img');
+    const status = document.getElementById('status');
+
+    function show() {
+      const url = input.value.trim();
+      if (!url) {
+        img.hidden = true;
+        img.removeAttribute('src');
+        status.textContent = 'Вставьте ссылку на картинку';
+        return;
+      }
+      img.src = url;
+    }
+
+    img.addEventListener('load', () => {
+      img.hidden = false;
+    });
+
+    img.addEventListener('error', () => {
+      img.hidden = true;
+      status.classList.add('error');
+      status.textContent = 'Ошибка';
+    });
+
+    document.getElementById('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      show();
+    });
+    input.addEventListener('input', show);
+  </script>
+</body>
+</html>
